@@ -1,0 +1,36 @@
+# GameReviewBot + (опционально) self-hosted LibreTranslate для перевода отзывов.
+#
+# Запуск:           docker compose up -d --build
+# Только бот:       docker compose up -d --build bot
+# Логи:             docker compose logs -f bot
+#
+# Примечание: PostgreSQL не нужен — данные хранятся в JSON (./data).
+# Если задан LIBRETRANSLATE_URL=http://libretranslate:5000, перевод (#16)
+# пойдёт через локальный контейнер ниже.
+
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # внутри compose-сети LibreTranslate доступен по имени сервиса
+      LIBRETRANSLATE_URL: ${LIBRETRANSLATE_URL:-http://libretranslate:5000}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - libretranslate
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    restart: unless-stopped
+    # только нужные языки, чтобы образ стартовал быстрее
+    environment:
+      LT_LOAD_ONLY: en,ru
+    ports:
+      - "5000:5000"
+    volumes:
+      - lt_models:/home/libretranslate/.local
+
+volumes:
+  lt_models:
