@@ -74,29 +74,49 @@ async function summarizeReviews(gameName, sample, lang = 'ru') {
   }
   if (!client) return heuristic(sample, lang);
 
-  const langName = lang === 'ru' ? 'русском' : 'English';
   const reviewsText = sample
     .map((r, i) => `${i + 1}. [${r.votedUp ? '+' : '-'}] ${r.text}`)
     .join('\n');
 
-  const content = await chat(
-    [
-      {
-        role: 'system',
-        content:
-          `You are an experienced game critic. Based on Steam player reviews you concisely highlight strengths and weaknesses. Reply ONLY in ${langName} language, strictly as JSON.`,
-      },
-      {
-        role: 'user',
-        content:
-          `Game: ${gameName}\n\nReviews:\n${reviewsText}\n\n` +
-          'Return strictly this JSON:\n' +
-          '{ "praise": ["..."], "criticism": ["..."], "summary": "..." }\n' +
-          'praise: 3-5 short points; criticism: 2-5 short points; summary: 2-3 sentences. Points up to 70 chars, no numbering.',
-      },
-    ],
-    { json: true }
-  );
+  // Промпты целиком на целевом языке — так модель не съезжает на английский.
+  const messages =
+    lang === 'ru'
+      ? [
+          {
+            role: 'system',
+            content:
+              'Ты — опытный игровой критик. По отзывам игроков из Steam кратко и по делу выделяешь сильные и слабые стороны игры. ' +
+              'Отвечай ТОЛЬКО на русском языке, без английских слов и фраз, и строго в формате JSON.',
+          },
+          {
+            role: 'user',
+            content:
+              `Игра: ${gameName}\n\nОтзывы игроков:\n${reviewsText}\n\n` +
+              'Проанализируй отзывы и верни строго такой JSON:\n' +
+              '{ "praise": ["..."], "criticism": ["..."], "summary": "..." }\n' +
+              'praise: 3–5 коротких пунктов (что хвалят); criticism: 2–5 коротких пунктов (что ругают); ' +
+              'summary: 2–3 предложения с общим выводом. Пункты — короткие фразы до 70 символов, без нумерации, ВСЁ на русском.',
+          },
+        ]
+      : [
+          {
+            role: 'system',
+            content:
+              'You are an experienced game critic. Based on Steam player reviews you concisely highlight strengths and weaknesses. ' +
+              'Reply ONLY in English, strictly as JSON.',
+          },
+          {
+            role: 'user',
+            content:
+              `Game: ${gameName}\n\nReviews:\n${reviewsText}\n\n` +
+              'Return strictly this JSON:\n' +
+              '{ "praise": ["..."], "criticism": ["..."], "summary": "..." }\n' +
+              'praise: 3-5 short points; criticism: 2-5 short points; summary: 2-3 sentences. ' +
+              'Points up to 70 chars, no numbering.',
+          },
+        ];
+
+  const content = await chat(messages, { json: true });
 
   if (!content) return heuristic(sample, lang);
 
